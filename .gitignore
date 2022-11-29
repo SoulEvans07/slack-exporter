@@ -1,0 +1,11 @@
+# dependencies
+node_modules/
+
+# artifacts
+build/
+
+# env
+.env
+
+# editor
+.vscode/
