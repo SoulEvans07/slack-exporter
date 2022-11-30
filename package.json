@@ -12,10 +12,12 @@
   "dependencies": {
     "@slack/oauth": "^2.5.4",
     "@slack/web-api": "^6.8.0",
+    "fs-extra": "^11.0.0",
     "googleapis": "^109.0.1",
     "tinyduration": "^3.2.3"
   },
   "devDependencies": {
+    "@types/fs-extra": "^9.0.13",
     "@types/node": "^18.11.9",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
