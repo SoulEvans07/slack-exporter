@@ -6,15 +6,21 @@ import {
   WebAPICallResult,
   WebClient,
 } from '@slack/web-api';
+import { Member } from '@slack/web-api/dist/response/UsersListResponse';
+import { Message } from '@slack/web-api/dist/response/ConversationsHistoryResponse';
+import { Message as ThreadReply } from '@slack/web-api/dist/response/ConversationsRepliesResponse';
 
 import { PickType, ResolvedValue, ReturnValue } from '../../types/utility';
 import { config } from '../../const/config';
-import { Member } from '@slack/web-api/dist/response/UsersListResponse';
 
 interface PaginateResponse {
   response_metadata?: {
     next_cursor?: string;
   };
+}
+
+interface MessageWithThread extends Message {
+  replies?: ThreadReply[];
 }
 
 const client = new WebClient(config.slack.oauthToken, {
@@ -91,35 +97,40 @@ export async function findConversationWithUser(userId: string) {
   return null;
 }
 
-export async function getHistory(conversationId: string) {
+export async function fetchHistory(conversationId: string) {
   const callback = (cursor?: string) =>
     client.conversations.history({
       channel: conversationId,
       cursor,
     });
-  return resolvePagination(callback, 'messages');
+  const messages = await resolvePagination(callback, 'messages');
+  return populateThreads(conversationId, messages);
 }
 
-// async function findConversation(name: string) {
-//   try {
-//     const result = await client.conversations.list();
+export async function populateThreads(conversationId: string, messages: Message[]) {
+  const history: MessageWithThread[] = [];
 
-//     if (!result.channels) return null;
+  for (const message of messages) {
+    const populated: MessageWithThread = message;
 
-//     const conversation = result.channels
+    if (!!populated.thread_ts && !!populated.reply_count) {
+      console.log(`[${conversationId}][thread] ${populated.thread_ts}`);
+      const replies = await fetchThread(conversationId, populated.thread_ts);
+      populated.replies = replies;
+    }
 
-//     for (const channel of result.channels) {
-//       if (channel.name === name) {
-//         conversationId = channel.id;
+    history.push(populated);
+  }
 
-//         // Print result
-//         console.log("Found conversation ID: " + conversationId);
-//         // Break from for loop
-//         break;
-//       }
-//     }
-//   }
-//   catch (error) {
-//     console.error(error);
-//   }
-// }
+  return history;
+}
+
+export async function fetchThread(conversationId: string, ts: string) {
+  const callback = (cursor?: string) =>
+    client.conversations.replies({
+      channel: conversationId,
+      ts,
+      cursor,
+    });
+  return resolvePagination(callback, 'messages');
+}

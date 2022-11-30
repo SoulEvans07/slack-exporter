@@ -4,7 +4,7 @@ import './polyfills';
 import { config } from './const/config';
 import { ensurePath, saveJsonToFile, setupFolders } from './services/files';
 import {
-  getHistory,
+  fetchHistory,
   findUserByEmail,
   findConversationWithUser,
   listConversations,
@@ -21,10 +21,12 @@ async function main() {
   console.log('[users] fetch...');
   const userList = await listUsers();
   const users = buildUserMap(userList);
+  saveJsonToFile(users, 'users.json')
   console.log(`[users] found ${userList.length}`);
 
   console.log('get converstaions...');
   const conversations = await listConversations();
+  saveJsonToFile(conversations, 'conversations.json')
 
   console.log(`exporting ${conversations.length} conversations`);
   for (const chat of conversations) {
@@ -57,7 +59,7 @@ async function main() {
     saveJsonToFile(chat, path.join(folder, 'meta.json'));
 
     console.log(`[${chat.id}] exporting...`);
-    const history = await getHistory(chat.id);
+    const history = await fetchHistory(chat.id);
     console.log(`[${chat.id}] saving...`);
     saveJsonToFile(history, path.join(folder, 'history.json'));
     console.log(`[${chat.id}] done!\n`);
@@ -79,7 +81,7 @@ async function savePrivate() {
   const convId = conversation.id;
   if (!convId) throw new Error(`Cant find id in conversation: ${JSON.stringify(conversation, undefined, 2)}`);
 
-  const history = await getHistory(convId);
+  const history = await fetchHistory(convId);
 
   ensurePath(`im/${convId}`);
   saveJsonToFile(history, `im/${convId}/history.json`);

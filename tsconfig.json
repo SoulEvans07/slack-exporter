@@ -114,5 +114,6 @@
   ],
   "exclude": [
     "jest.config.ts",
+    "out"
   ]
 }
