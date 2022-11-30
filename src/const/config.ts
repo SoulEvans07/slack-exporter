@@ -7,4 +7,5 @@ export const config = {
     oauthToken: process.env.SLACK_USER_OAUTH_TOKEN!,
     userEmail: process.env.SLACK_USER_EMAIL!,
   },
+  output: process.env.OUTPUT_FOLDER!,
 };

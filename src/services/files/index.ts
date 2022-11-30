@@ -1,7 +1,9 @@
 import fs from 'fs-extra';
 import path from 'path';
 
-const outputFolder = './out';
+import { config } from '../../const/config';
+
+const outputFolder = config.output;
 
 export function clearSync() {
   fs.removeSync(outputFolder);
