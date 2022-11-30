@@ -9,6 +9,7 @@ import {
 
 import { PickType, ResolvedValue, ReturnValue } from '../../types/utility';
 import { config } from '../../const/config';
+import { Member } from '@slack/web-api/dist/response/UsersListResponse';
 
 interface PaginateResponse {
   response_metadata?: {
@@ -56,6 +57,13 @@ export async function resolvePagination<R extends PaginateResponse>(
 export async function listUsers() {
   const callback = (cursor?: string) => client.users.list({ cursor });
   return resolvePagination(callback, 'members');
+}
+
+export function buildUserMap(userList: Member[]): Record<string, Member> {
+  return userList.reduce((acc: Record<string, Member>, curr) => {
+    if (!curr.id) return acc;
+    return { ...acc, [curr.id]: curr };
+  }, {});
 }
 
 export async function findUserByEmail(email: string) {
