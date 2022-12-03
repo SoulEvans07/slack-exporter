@@ -1,3 +1,4 @@
+import path from 'path';
 import {
   ConversationsHistoryResponse,
   ConversationsListResponse,
@@ -12,6 +13,7 @@ import { Message as ThreadReply } from '@slack/web-api/dist/response/Conversatio
 
 import { PickType, ResolvedValue, ReturnValue } from '../../types/utility';
 import { config } from '../../const/config';
+import { Channel } from '@slack/web-api/dist/response/ConversationsListResponse';
 
 interface PaginateResponse {
   response_metadata?: {
@@ -86,6 +88,13 @@ export async function listConversations() {
   return resolvePagination(callback, 'channels');
 }
 
+export function buildChatMap(chatList: Channel[]): Record<string, Channel> {
+  return chatList.reduce((acc: Record<string, Channel>, curr) => {
+    if (!curr.id) return acc;
+    return { ...acc, [curr.id]: curr };
+  }, {});
+}
+
 export async function findConversationWithUser(userId: string) {
   const conversations = await listConversations();
 
@@ -133,4 +142,48 @@ export async function fetchThread(conversationId: string, ts: string) {
       cursor,
     });
   return resolvePagination(callback, 'messages');
+}
+
+export async function listFiles(conversationId?: string) {
+  const callback = (cursor?: string) =>
+    client.files.list({
+      channel: conversationId,
+      cursor,
+    });
+  return resolvePagination(callback, 'files');
+}
+
+export function getChatName(chat: Channel, users: Record<string, Member>): string {
+  const user = !!chat.user ? users[chat.user] : undefined;
+  const name = chat.is_channel
+    ? '#' + chat.name
+    : chat.is_group || chat.is_mpim
+    ? '.' + chat.name
+    : chat.is_im
+    ? '@' + (user?.name || chat.id)
+    : 'unknown';
+  return name;
+}
+
+export function getChatType(chat: Channel): string {
+  const type = chat.is_channel
+    ? 'channel'
+    : chat.is_group || chat.is_mpim
+    ? 'group'
+    : chat.is_im
+    ? 'direct'
+    : 'unknown';
+  return type;
+}
+
+export function getChatOutputFolder(
+  chat: Channel,
+  users: Record<string, Member>
+): { folder: string; visibility: string; type: string; name: string } {
+  const visibility = chat.is_private ? 'private' : 'public';
+  const type = getChatType(chat);
+  const name = getChatName(chat, users);
+
+  const folder = path.join(visibility, type, name);
+  return { folder, visibility, type, name };
 }

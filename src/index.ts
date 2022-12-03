@@ -1,4 +1,5 @@
 import path from 'path';
+import { File } from '@slack/web-api/dist/response/FilesListResponse';
 
 import './polyfills';
 import { config } from './const/config';
@@ -10,7 +11,11 @@ import {
   listConversations,
   listUsers,
   buildUserMap,
+  listFiles,
+  getChatOutputFolder,
+  buildChatMap,
 } from './services/slack';
+import { fileDownload } from './services/download';
 
 main();
 
@@ -21,40 +26,24 @@ async function main() {
   console.log('[users] fetch...');
   const userList = await listUsers();
   const users = buildUserMap(userList);
-  saveJsonToFile(users, 'users.json')
+  saveJsonToFile(users, 'users.json');
   console.log(`[users] found ${userList.length}`);
 
   console.log('get converstaions...');
-  const conversations = await listConversations();
-  saveJsonToFile(conversations, 'conversations.json')
+  const chatList = await listConversations();
+  const chats = buildChatMap(chatList);
+  saveJsonToFile(chatList, 'conversations.json');
 
-  console.log(`exporting ${conversations.length} conversations`);
-  for (const chat of conversations) {
+  console.log(`exporting ${chatList.length} conversations`);
+  for (const chat of chatList) {
     if (chat.id == undefined) {
       console.error(`chat missing id`, chat);
       continue;
     }
 
-    const visibility = chat.is_private ? 'private' : 'public';
-    const type = chat.is_channel
-      ? 'channel'
-      : chat.is_group || chat.is_mpim
-      ? 'group'
-      : chat.is_im
-      ? 'direct'
-      : 'unknown';
-
-    const user = !!chat.user ? users[chat.user] : undefined;
-    const name = chat.is_channel
-      ? '#' + chat.name
-      : chat.is_group || chat.is_mpim
-      ? 'group'
-      : chat.is_im
-      ? '@' + user?.name || chat.id
-      : 'unknown';
+    const { folder, visibility, type, name } = getChatOutputFolder(chat, users);
 
     console.log(`[${chat.id}] ${name} - ${visibility}/${type}`);
-    const folder = path.join(visibility, type, name);
     ensurePath(folder);
     saveJsonToFile(chat, path.join(folder, 'meta.json'));
 
@@ -63,6 +52,49 @@ async function main() {
     console.log(`[${chat.id}] saving...`);
     saveJsonToFile(history, path.join(folder, 'history.json'));
     console.log(`[${chat.id}] done!\n`);
+  }
+
+  console.log('get files...');
+  const files = await listFiles();
+  saveJsonToFile(files, './all-files.json');
+
+  const filesMap = files.reduce((acc, file) => {
+    const convIds = [...(file.channels || []), ...(file.groups || []), ...(file.ims || [])];
+    if (convIds.length === 0) convIds.push('__UNLINKED__');
+    convIds.forEach(id => {
+      if (acc[id] === undefined) acc[id] = [file];
+      else acc[id].push(file);
+    });
+    return acc;
+  }, {} as Record<string, Array<File>>);
+  saveJsonToFile(filesMap, './files-map.json');
+
+  console.log('download files...');
+  for (const [convId, files] of Object.entries(filesMap)) {
+    // if (convId !== 'C0491D6B4U8') continue;
+    const chat = chats[convId];
+
+    let folder = './';
+    if (chat) folder = getChatOutputFolder(chat, users).folder;
+
+    const filesFolder = path.join(folder, 'files');
+    ensurePath(filesFolder);
+
+    for (const file of files) {
+      const url = file.url_private_download || file.url_private;
+
+      if (!url) {
+        console.error(folder, url);
+        continue;
+      }
+
+      const fileName = file.name || file.id!;
+      console.log(`[files][${convId}] download ${fileName} ...`);
+
+      const folderPath = path.join(config.output, filesFolder);
+      await fileDownload(url, folderPath, fileName);
+      console.log(`[files][${convId}] ${fileName} saved to ${folder}`);
+    }
   }
 
   console.log('Done!');
