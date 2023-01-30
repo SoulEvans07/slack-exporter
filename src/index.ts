@@ -88,7 +88,7 @@ async function main() {
         continue;
       }
 
-      const fileName = file.name || file.id!;
+      const fileName = file.name ? `${file.id} - ${file.name}` : `${file.id || 'unknown'}.${file.filetype || 'unk'}`;
       console.log(`[files][${convId}] download ${fileName} ...`);
 
       const folderPath = path.join(config.output, filesFolder);
