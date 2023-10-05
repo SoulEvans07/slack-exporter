@@ -187,3 +187,8 @@ export function getChatOutputFolder(
   const folder = path.join(visibility, type, name);
   return { folder, visibility, type, name };
 }
+
+export async function getEmojis() {
+  const emojis = await client.emoji.list();
+  console.log(emojis);
+}
